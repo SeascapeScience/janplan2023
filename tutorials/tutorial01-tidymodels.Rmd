@@ -1,0 +1,67 @@
+---
+title: "tutorial01-tidymodels"
+author: "Nicholas R. Record"
+date: 
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This markdown document steps through the "getting started" tuturial from Tidymodels <https://www.tidymodels.org/start/models/>.
+
+You can click through the code to run it in real time, or  click the **Knit** button to generate an HTML that includes both content as well as the output of any embedded R code chunks within the document. 
+
+The first chunk of code below loads the necessary libraries. If you don't have these libraries yet, you'll need to install them using the install.packages() command.
+
+```{r}
+library(tidymodels)  # for the parsnip package, along with the rest of tidymodels
+
+# Helper packages
+library(readr)       # for importing data
+library(broom.mixed) # for converting bayesian models to tidy tibbles
+library(dotwhisker)  # for visualizing regression results
+```
+
+## Loading the Sea Urchins Data
+
+This code pulls the example data from a website
+
+```{r}
+urchins <-
+  # Data were assembled for a tutorial 
+  # at https://www.flutterbys.com.au/stats/tut/tut7.5a.html
+  read_csv("https://tidymodels.org/start/models/urchins.csv") %>% 
+  # Change the names to be a little more verbose
+  setNames(c("food_regime", "initial_volume", "width")) %>% 
+  # Factors are very helpful for modeling, so we convert one column
+  mutate(food_regime = factor(food_regime, levels = c("Initial", "Low", "High")))
+```
+
+What does the data look like?
+```{r}
+urchins
+```
+
+And here is a fancy plot of the data. Don't worry if all of this code doesn't make sense yet.
+```{r}
+ggplot(urchins,
+       aes(x = initial_volume, 
+           y = width, 
+           group = food_regime, 
+           col = food_regime)) + 
+  geom_point() + 
+  geom_smooth(method = lm, se = FALSE) +
+  scale_color_viridis_d(option = "plasma", end = .7)
+```
+
+## Build and fit a model
+
+From here, you can add chunks of code from the tutorial page <https://www.tidymodels.org/start/models/>. Make sure the chunks of code are pasted within the R blocks, like below.
+
+```{r}
+
+```

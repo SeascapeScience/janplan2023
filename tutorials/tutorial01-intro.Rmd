@@ -1,0 +1,150 @@
+---
+title: "tutorial00-intro"
+author: "Nicholas R. Record"
+date: 
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This R Markdown document walks through some basic steps to get you familiar with R and R studio. 
+
+Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+You can click the little play arrow/triangle to run each block of code in this editor. Or, when you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document.
+
+## R as a calculator
+
+Get warmed up by typing in some simple math equations. Feel free to edit the equation and re-run, trying some other things.
+
+```{r}
+
+5+7
+
+```
+
+The output is what comes after the [1].
+
+## Variables / objects
+
+You can use letters to save values, like variables in algebra, or bits of text, or even whole collections of data, like a spreadsheet. The "<-" notation is supposed to look sort of like an arrow, pointing at the direction of the assignment.
+
+Note that anything after the # symbol is just a note to the reader.
+
+```{r}
+x <- 5+7
+y <- 24
+x  # Show what x is
+y  # Show what y is
+y / x  # Show y divided by x
+```
+Like in the first example, the output of each of the statements follows the [1].
+
+Next we have a variable equal to a bit of text and try to divide it by a number. You'll need to remove the # comment symbol to run the last line of code because it makes an error.
+
+```{r}
+z <- 'twelve'
+z  # Show what z is
+# z / 2 # Try to divide a character string (i.e. a word) by a number
+```
+
+Below is an empty code block. Go ahead and type in some more code and play around.
+```{r}
+# Empty block of code for playing around
+
+```
+
+Next we'll look at a variable that is a collection of data, sort of like a mini spreadsheet. Usually you'll load in data from a file, but this shows how to put some data into a table from scratch.
+
+Note that we need the 'data.table' library. New libraries load in new functions. If you don't have it, you can install it using the install.packages() function. That is, you'll need to add a line like this--
+
+install.package('data.table')
+
+```{r}
+library('data.table')
+
+age <- c(55,22,13,45,10)
+height <- c(200,190,175,180,120)
+data <- data.table(age,height)
+data
+```
+
+There, we just made a little data table. You can click on it in the "Environment" section of R studio to see the whole thing. You can also look at specific points in this table by using indexing. 
+
+```{r}
+data$age[2] # The second age in the list
+data$height[5] # The fifst height in the list
+```
+
+## Functions
+
+What did we do when we just loaded that library?
+
+R has all kinds of functions built in, like min() and max() for example. Here's how to look at the minimum and maximum of the data table we just created:
+
+```{r}
+min(data$age)
+max(data$height)
+```
+
+Each time you load in a new library, you're loading in new functions that can do different things. You can even write your own functions. If you find yourself copying and pasting a bit of code again and again, that's a good opportunity to try to write your own function. But that will all come later.
+
+
+## Plotting
+
+One handy function is called plot(). As you might guess, this creates a plot of data. Here we'll plot the height versus the age from the data table we just made.
+
+```{r}
+plot(data$age,data$height)
+```
+
+This plot looks a little rough and sloppy. There are all kinds of ways to make the plot look better. Below is an example of a plot that's a bit more cleaned up, including axes labeled with units (always important!).
+
+This example uses what are called "base graphics" in R. To see more options, check out this site <https://r-coder.com/plot-r/>.
+
+And if you want to dig into even fancier graphics, there are packages/libraries you can install like "ggplot2".
+
+```{r}
+plot(data$age, data$height,
+     main = 'Some data I made up',
+     xlab = 'Age (years)',
+     ylab = 'Height (cm)',
+     cex = 3,
+     pch = 21,
+     col = 'blue',
+     bg = 'red',
+     lwd = 3)
+```
+
+## Loading and Plotting Data
+
+One last task for this tutorial-- loading in some real data. We'll use NOAA's records of the North Atlantic Oscillation (NAO). Check it out. Instead of showing the whole data table, we'll use the "summary" function. It gives a summary of each column in our new "nao" data table.
+
+```{r}
+nao <- read.csv('../data/nao.csv')
+summary(nao)
+```
+
+Again, you can click on the variable "nao" in your environment to view the whole table.
+
+Try plotting some of the data. We'll plot the January NAO value against Year. You'll notice that there are some values near -100. That's because the data file records missing values as -99.99. It makes the plot pretty much impossible to read!
+
+```{r}
+plot(nao$Year,nao$Jan.nao)
+```
+
+You can replace all of those values with a statement like the one below. Anywhere the value is equal to -99.99, it replaces it with NA, which basically means no value.
+
+Let's do that, and make the plot a line plot.
+
+```{r}
+nao[nao == -99.99] <- NA
+plot(nao$Year,nao$Jan.nao,
+     type = 'l',
+     xlab = 'year',
+     ylab = 'NAO January index')
+```
