@@ -148,3 +148,23 @@ plot(nao$Year,nao$Jan.nao,
      xlab = 'year',
      ylab = 'NAO January index')
 ```
+
+## Assignment
+
+There are all kinds of data sources available through repositories online. Here are some examples of ocean-related datasets:
+
+* Global fish stock time series
+  + <http://www.seaaroundus.org>
+* Commercial fishery landings data
+  + <https://www.fisheries.noaa.gov/foss/f?p=215:200:4272106129122:Mail::::>
+  + <https://www.maine.gov/dmr/commercial-fishing/landings/historical-data.html>
+* NOAA climate indices
+  + <https://psl.noaa.gov/data/climateindices/list/>
+* Satellite ocean data
+  + <https://oceancolor.gsfc.nasa.gov/>
+* Ocean ecosystem indicators
+  + <https://noaa-edab.github.io/tech-doc/>
+
+Obtain a dataset from some source. Save it as a .csv file. Load the csv file into R, and make a simple plot. Include the .csv file and R code along with your plot.
+
+
