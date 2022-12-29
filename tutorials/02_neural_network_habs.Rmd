@@ -1,0 +1,235 @@
+---
+title: "Predicting Toxic Shellfish with Neural Networks"
+author: "Johnathan Evanilla"
+date: "12/28/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE, warnings=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Packages
+
+```{r load packages, warnings=FALSE, message=FALSE}
+
+library(dplyr)
+library(keras)
+library(ggplot2)
+
+
+library(psptools) ## do we need to load this or does sourcing the function file take care of it ##
+library(reticulate)
+```
+
+## Source some home grown functions
+```{r}
+source("02_neural_network_hab_functions.R")
+```
+
+Read in csv file with raw data. Each row in table represents a unique shellfish toxicity measurement. The column 'total_toxicity' is a sum of the 12 toxins t1-t12. Additionally, we have collected sea surface temperature (sst), cumulative sea surface temperature (sst_cum), and photosynthetic active radiation 8 day rolling average (par_8DR).
+
+``` {r get data, message=FALSE}
+
+raw_data <- readr::read_csv("02_neural_network_hab_data.csv") %>% 
+  psptools::log_inputs(vars = c("t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9", "t10", "t11", "t12"))
+
+str(raw_data)
+
+```
+
+
+Make images from raw data using the function 'make_image_list,' which returns a list of lists. Each element of the list contains an 'image' pulled from the raw toxin data along with its station, date, etc. 
+ 
+Specify bins for toxicity classification, number of gaps in image, number of gaps ahead forecast is valid for, and size of gap (between samples in image)
+
+Split up training images by year to test on one season
+
+Make train and test objects that have 2d array of all images and their labels
+
+
+```{r make labeled samples from data}
+
+#Generate images from data
+image_list <- make_image_list(raw_data,
+                              tox_levels =     c(0,10,30,80),
+                              forecast_steps = 1,
+                              n_steps =        3,
+                              minimum_gap =    4,
+                              maximum_gap =    10,
+                              toxins =         c("t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9", "t10", "t11", "t12"),
+                              environmentals = c("sst_cum"))
+
+
+
+```
+
+```{r}
+#Splits image_list by year for grouping into train/test data
+years <- sapply(image_list, function(x) {return(x$year)})
+image_list <- split(image_list, years)
+```
+
+```{r}
+#configuration
+YEARS_TRAINING <-   c("2014", "2015", "2016")
+YEARS_TESTING <-    "2017"
+  
+#Make a training set
+train <- pool_images_and_labels(image_list[YEARS_TRAINING], num_classes = 4)
+
+#Make a test set
+test <- pool_images_and_labels(image_list[YEARS_TESTING], num_classes = 4)
+```
+
+
+```{r}
+str(train)
+dim(train$image)
+```
+
+
+Define model architecture
+
+Dense layers - define units and activation function 
+  Input shape in first (input) layer
+
+```{r build model} 
+
+model <- keras_model_sequential() %>% 
+  layer_dense(units=64, 
+              activation = "relu", 
+              input_shape = dim(train$image)[2],
+              name = "input_layer") %>%
+  layer_dropout(rate = 0.4,
+                name = "dropout_1") %>% 
+  layer_dense(units=32, 
+              activation = "relu",
+              name = "hidden_1") %>% 
+  layer_dropout(rate=0.3,
+                name = "dropout_2") %>% 
+  layer_dense(units=32, 
+              activation = "relu",
+              name = "hidden_2") %>% 
+  layer_dropout(rate=0.2,
+                name = "dropout_3") %>%
+  layer_dense(units = 4, 
+              activation = "softmax",
+              name = "output")
+
+summary(model)
+
+```
+
+Compile model by selecting an optimizer and loss/metric to track performance
+
+``` {r compile model}
+
+model %>% keras::compile(optimizer =  "adam",
+                         loss =       "categorical_crossentropy", 
+                         metrics =    "categorical_accuracy")
+
+```
+
+
+Train the model on the training data
+
+Specify how much training data to pass through the network at once (batch_size), how long (epochs), how much training data to withhold for performance assessment between epochs, and whether or not to shuffle the training data before splitting off a validation set.
+
+Output is performance each epoch
+
+```{r fit model to training data}
+
+model %>% keras::fit(x = train$image,
+                     y = train$labels,
+                     batch_size = 128,
+                     epochs = 64,
+                     validation_split = 0.2,
+                     shuffle = TRUE)
+
+```
+
+
+Test the model with data it has not seen yet (test set).
+
+
+
+```{r test model}
+
+metrics <- model %>% 
+  evaluate(x = test$image,
+           y = test$labels)
+
+predictions <- model %>% 
+  predict(test$image) %>% 
+  k_argmax() %>% 
+  as.vector()
+
+predicted_probs <- model %>% 
+      predict(test$image)
+
+
+
+```
+
+Hindcast results can be viewed in table form
+Each row represents a prediction made for 1 step ahead of the date shown at a sampling site
+
+```{r results}
+
+results <- dplyr::tibble(location = test$locations,
+                         date = as.Date(as.numeric(test$dates), origin = as.Date("1970-01-01")),
+                         actual_classification = test$classifications,
+                         predicted_classification = predictions) %>% 
+      dplyr::mutate(prob_0 = predicted_probs[,1]*100,
+                    prob_1 = predicted_probs[,2]*100,
+                    prob_2 = predicted_probs[,3]*100,
+                    prob_3 = predicted_probs[,4]*100)
+
+results
+```
+
+
+Make a confusion matrix to visualize model performance
+
+
+``` {r confusion matrix}
+
+num_levels <- 4
+levels <- seq(from=0, to=(num_levels-1))
+
+cm <- as.data.frame(table(predicted = factor(predictions, levels), actual = factor(test$classifications, levels)))
+  
+confusion_matrix <- ggplot(data = cm,
+                    mapping = aes(x = .data$predicted, 
+                                  y = .data$actual)) +
+  geom_tile(aes(fill = log(.data$Freq+1))) +
+  geom_text(aes(label = sprintf("%1.0f", .data$Freq)), 
+            vjust = 1, 
+            size=8) +
+  scale_fill_gradient(low = "white", 
+                      high = "blue") +
+  labs(x = "Predicted Classifications", 
+       y = "Actual Classifications", 
+       title=paste("Confusion Matrix -", YEARS_TESTING, "Toxin Testing Season Hindcast",sep=" "),
+       subtitle=paste("Loss:", round(metrics[1], 3), "Accuracy:", round(metrics[2], 3), sep=" "),
+       caption=paste(Sys.Date())) +
+  theme_linedraw() +
+  theme(axis.text=  element_text(size=14),
+        axis.title= element_text(size=14,face="bold"),
+        title =     element_text(size = 14, face = "bold"),
+        legend.position = "none") 
+
+confusion_matrix
+
+
+```
+
+
+
+
+
+
+
+
+
