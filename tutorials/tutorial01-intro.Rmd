@@ -125,7 +125,8 @@ plot(data$age, data$height,
 One last task for this tutorial-- loading in some real data. We'll use NOAA's records of the North Atlantic Oscillation (NAO). Check it out. Instead of showing the whole data table, we'll use the "summary" function. It gives a summary of each column in our new "nao" data table.
 
 ```{r}
-nao <- read.csv('../data/nao.csv')
+#nao <- read.csv('../data/nao.csv')
+nao <- read.csv('https://raw.githubusercontent.com/SeascapeScience/janplan2023/main/data/nao.csv')
 summary(nao)
 ```
 
