@@ -1,0 +1,194 @@
+---
+title: "tutorial02-prediction"
+author: "Nicholas R. Record"
+date: 
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This markdown document gives an example of how we could use TidyModels to make a forecast.
+
+```{r}
+library(tidymodels)  # for the parsnip package, along with the rest of tidymodels
+
+# Helper packages
+library(readr)       # for importing data
+#library(broom.mixed) # for converting bayesian models to tidy tibbles
+#library(dotwhisker)  # for visualizing regression results
+```
+
+## Loading the predictor data (North Atlantic Oscillation)
+
+We'll load the NAO data like we did in the last tutorial.
+
+```{r}
+nao <- read.csv('https://raw.githubusercontent.com/SeascapeScience/janplan2023/main/data/nao.csv')
+```
+
+Take a quick look at the data we just loaded
+```{r}
+nao
+```
+
+Now let's load in something we're trying to forecast.
+```{r}
+herring <- read.csv('../data/MaineHerring.csv')
+```
+
+And take a look at the data...
+```{r}
+herring
+```
+I noticed in the table that the data type for pounds, metric tons, and dollars is listed as "chr". That means these aren't seen by R as numbers, but as characters (i.e. text). It's even more annoying because there are commas in the text. This can happen depending on the way the data you load in happens to be formatted. 
+
+It makes life difficult for doing data analysis, but we can fix it like this:
+```{r}
+herring$Metric.Tons <- as.numeric(gsub(",","",herring$Metric.Tons))
+herring$Pounds <- as.numeric(gsub(",","",herring$Pounds))
+herring$Dollars <- as.numeric(gsub(",","",herring$Dollars))
+```
+
+Look at the table again. All the numbers are listed as <dbl> which means they're actual numbers now.
+```{r}
+herring
+```
+
+
+Now we can start to get an understanding of relationships within these datasets to help us understand if there's any potential for prediction or forecasting.
+
+We're going to try to use the NAO (which is measured from climate data) to predict the herring catches in Maine. Let's see if the January NAO variable has any relationship to the herring catches. 
+
+We want to plot one against the other, but right now, the NAO data goes from the 1800s to 2022, and the herring data goes from 1950 to 2021. Let's line them up.
+
+```{r}
+alldata <- merge(nao,herring,by="Year")
+```
+
+And take a look at the merged data table...
+```{r}
+alldata
+```
+
+Another way to get a glimpse of a big data table like this is to turn it sideways using the glimpse() function.
+```{r}
+glimpse(alldata)
+```
+
+
+Now we can make some simple plots of any column against any other column.
+
+```{r}
+plot(alldata$Jan.nao,alldata$Metric.Tons)
+```
+
+I don't see a strong relationship there, but maybe if we use all of the data in the NAO table, we might be able to make a prediction. This is where we'll get into modeling using the TidyModels package.
+
+## Build and fit a model
+
+We're using a workflow from tidymodels, which has more examples at this site: <https://www.tidymodels.org/start/models/>. First we want to divide the data into some that we'll use to train the model, and some that we'll use to test how well the model did. Here we'll use 80% of the data for training and 20% for testing.
+
+```{r}
+data_split <- initial_split(alldata, prop = 8/10)
+data_test <- testing(data_split)
+data_train <- training(data_split)
+```
+
+The next step is to build a "recipe" for the model. The first part tells it what to predict, based on which variables. Here, we're predicting Metric.Tons as a function of the Jan, Feb, and Mar NAO values. The second part tells it what to use as the data table to work from--here the training data. This all sets the stage for our modeling.
+
+```{r}
+herring_recipe <- recipe(Metric.Tons ~ Jan.nao + Feb.nao + Mar.nao, data = data_train)
+```
+
+Now we can choose all kinds of different models to use. We'll try linear regression. You have to choose an "engine" as well. This is just a way of refering to the code that runs in the background, that someone else has written to do whatever kind of modeling you're doing. To see the engines, you can do this:
+
+```{r}
+show_engines("linear_reg")
+```
+
+We'll choose "glm". There are other options you can choose. For example, you could do a classification instead of a regression. We'll talk about different model choices in class.
+
+```{r}
+lin_mod <- linear_reg() %>% 
+  set_mode("regression") %>%
+  set_engine("glm")
+lin_mod
+```
+
+The next step is to combine the recipe and the model into a "workflow".
+
+```{r}
+wflow <- 
+  workflow() %>% 
+  add_model(lin_mod) %>% 
+  add_recipe(herring_recipe)
+```
+
+Here's what that workflow contains...
+```{r}
+wflow
+```
+
+Finally, we'll put it all together to fit the data using the model and recipe we've built.
+
+```{r}
+herring_fit <- wflow %>% 
+  fit(data = data_train)
+herring_fit
+```
+
+Now we can use the model fit to predict on the data that we held aside for testing.
+
+```{r}
+predict(herring_fit, data_test)
+```
+
+To compare the prediction to the actual value, you can plot them against each other. First you combine your fitted data to the testing data table. Then you can do a simple plot.
+
+```{r}
+MTpredictions <- augment(herring_fit, data_test)
+plot(MTpredictions$.pred,MTpredictions$Metric.Tons)
+```
+
+Finally, you can look at the skill metrics of how the model did. RMSE is root mean square error, RSQ is the r-squared metric, and MAE is the mean absolute error. In this example, these are poor performance values. You would want RMSE and RAE to be small, and/or r-squared to be close to 1.
+
+```{r}
+fit_metrics <- metrics(MTpredictions, truth = Metric.Tons, estimate=.pred)
+fit_metrics
+```
+
+
+
+## Turning it into a forecast
+
+It looks like the NAO is not a great predictor of herring. But so far we've used a given year NAO value to predict that same year's herring catch. If we were really going to forecast, we would need to use the NAO value(s) to predict the following year's herring catch. We can do this by shifting all of the herring catch data by a year. Let's build a new data table from the herring data, but shift the years by one.
+
+```{r}
+herring_lag <- herring # Copies the 'herring' table to a new variable
+herring_lag$Year <- herring_lag$Year - 1 # Subtracts 1 from the year
+lagdata <- merge(nao,herring_lag,by="Year") # Makes a combined data table with all data, only now the herring data is lagged by a year
+```
+
+Now we can walk through the same modeling steps with this new data table. I'll combine them together in one block.
+
+```{r}
+data_split <- initial_split(lagdata, prop = 8/10)
+data_test <- testing(data_split)
+data_train <- training(data_split)
+herring_lag_recipe <- recipe(Metric.Tons ~ Jan.nao + Feb.nao + Mar.nao, data = data_train)
+lin_mod <- linear_reg() %>% 
+  set_mode("regression") %>%
+  set_engine("glm")
+wflow <- 
+  workflow() %>% 
+  add_model(lin_mod) %>% 
+  add_recipe(herring_lag_recipe)
+herring_lag_fit <- wflow %>% 
+  fit(data = data_train)
+MTpredictions_lag <- augment(herring_lag_fit, data_test)
+plot(MTpredictions_lag$.pred,MTpredictions_lag$Metric.Tons)
+```

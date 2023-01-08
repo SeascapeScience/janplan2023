@@ -62,7 +62,7 @@ Next we'll look at a variable that is a collection of data, sort of like a mini 
 
 Note that we need the 'data.table' library. New libraries load in new functions. If you don't have it, you can install it using the install.packages() function. That is, you'll need to add a line like this--
 
-install.package('data.table')
+install.packages('data.table')
 
 ```{r}
 library('data.table')
