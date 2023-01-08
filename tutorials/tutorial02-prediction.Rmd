@@ -35,7 +35,10 @@ Take a quick look at the data we just loaded
 nao
 ```
 
-Now let's load in something we're trying to forecast.
+## Loading in the herring data
+
+Now let's load in something we're trying to forecast. This is a case where we'll need to do some data cleaning.
+
 ```{r}
 herring <- read.csv('../data/MaineHerring.csv')
 ```
@@ -140,6 +143,8 @@ herring_fit <- wflow %>%
   fit(data = data_train)
 herring_fit
 ```
+
+## Assessing the model's predictions
 
 Now we can use the model fit to predict on the data that we held aside for testing.
 
