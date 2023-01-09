@@ -61,6 +61,16 @@ Look at the table again. All the numbers are listed as <dbl> which means they're
 herring
 ```
 
+We can also plot the data as a check that everything looks okay.
+
+```{r}
+plot(herring$Year,herring$Metric.Tons,
+     type = 'l',
+     xlab = "Year",
+     ylab = "Maine herring catch (metric tons)",
+     lwd = 3,
+     col = "blue")
+```
 
 Now we can start to get an understanding of relationships within these datasets to help us understand if there's any potential for prediction or forecasting.
 
@@ -201,6 +211,7 @@ fit_metrics_lag
 ```
 
 This model is a little better, but still not great. It appears that the NAO only has a small amount of predictive power for forecasting herring catches. What other variables might improve this?
+
 
 ## Assignment
 
