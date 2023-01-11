@@ -1,0 +1,99 @@
+---
+title: "OBIS Pull and Plot Tutorial"
+author: "Kyle Oliveira"
+date: "2023-01-03"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+R tool for pulling and plotting occurrence data from the Ocean Biodiversity Information System (OBIS).
+
+We will begin by downloading necessary packages for working with OBIS associated data. 
+
+```{r}
+#install.packages(c("dplyr", "readr", "robis", "mapview", "sf", "ggplot2"))
+
+library(dplyr)
+library(readr)
+library(robis)
+library(mapview)
+library(sf)
+library(ggplot2)
+
+
+```
+
+Next we'll pull our data from OBIS using the occurrence function from the robis package. By looking up the function in the console window, we can gain insight into how else we may potentially use this function. For now, feel free to replace the scientific name for white sharks "Carcharodon carcharias" with any other marine species name you can think of. Feel free to also look through the data table and explore the values and what may be important.
+
+We also pipe in a function distinct(), which should ideally get rid of all repeats and leave us with only distinct occurrence points.
+
+```{r}
+occ <- occurrence(scientificname = "Carcharodon carcharias") |>
+  distinct()
+```
+
+It's always good to take a look at the data that you pull to make sure it looks the way you want it to and the structure makes sense. Here we'll take a look at the beginning few entries using head(occ), look at the columns using glimpse(occ), and look at the structure of the data using str(occ). To break down those two lines of code and their functions: head() is a function in the utils package and will show you the first parts of an object; glimpse() is a function in the dplyr package and will show you the columns in the dataframe; str() is a function in the utils package and will show the internal structure of an object.
+
+```{r}
+head(occ)
+glimpse(occ)
+str(occ)
+```
+
+Next, we'll aim to plot the occurrence data that we just pulled from OBIS to get a visualization of the data in a spatial context. Conveniently built into the robis package is a function called map_leaflet. We will use this function to easily map out the occurrence data pulled in the last step.
+
+```{r}
+robis::map_leaflet(occ)
+
+```
+
+In order to make a prettier map with more functionality using the mapview package (https://r-spatial.github.io/mapview/), we have to convert our latitude and longitude into a coordinates column that will combine both. Doing this allows our occurrence points to be treated as a spatial features, or an sf, object rather than a dataframe or other type of object. We also include the coordinate reference system (crs), which will be translated later on.
+
+```{r}
+occ_sf <- occ |>
+  st_as_sf(coords = c("decimalLongitude", "decimalLatitude"), crs = 4326)
+
+```
+
+Now that we've converted our points into sf objects, we can utilize the mapview package to create a more useful map than the leaflet. Here I am using basisOfRecord, which tells us the method of observation for the occurrences as a factor by which I color the occurrence points. Take the time to go through the arguments you can pass to the mapview function.
+
+```{r}
+mapview(occ_sf, fgb = F, georaster = F, zcol = "basisOfRecord")
+```
+
+For the next couple exercises we'll be back using the data frames of occurrences to create some plots that show the biases in our data. Below I have a block of code that runs through making two different bar plots that show the frequency of occurrences in different categories. We do this using ggplot, which is a function of the package ggplot2 (https://ggplot2.tidyverse.org). You can also create similar plots using the barplot() function from the graphics package.
+
+```{r}
+bOR_column = ggplot(occ, aes(basisOfRecord)) +
+  geom_bar() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+bOR_column
+
+year = ggplot(occ, aes(date_year)) +
+  geom_bar() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+year
+
+# same thing using barplot()
+x = group_by(occ, basisOfRecord) |>
+  count()
+x
+barplot(x$n ~ x$basisOfRecord, las = 2, xlab = '')
+
+```
+
+As we can see from the plots made, there are some heavy biases in the occurrence data we have pulled from OBIS. Machine observations are heavily relied upon in getting occurrence data, and most of the occurrences have been taken in the last 5-10 years. 
+
+To do:
+Work on exploring other fields in the dataframe and making your own plots to potentially uncover other biases below. 
+
+Objectives:
+
+1. What are the other data gaps or biases we can uncover in this dataset?
+
+2. Pick another species and repeat the above process, identifying data gaps and potential biases for your species of choice.
+
+3. Explain how these might influence models and forecasts of that species' distribution. 
