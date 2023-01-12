@@ -212,6 +212,42 @@ fit_metrics_lag
 
 This model is a little better, but still not great. It appears that the NAO only has a small amount of predictive power for forecasting herring catches. What other variables might improve this?
 
+The last thing we'll do is think about this in a forecasting context-- in other words, what if we want to train our data from the early part of the time series, and test it on the later part? A random split of the data won't accomplish this. So we need to split the data by time. All you have to do is replace "initial_split" with "initial_time_split".
+
+```{r}
+data_split <- initial_time_split(lagdata, prop = 8/10)
+data_test <- testing(data_split)
+data_train <- training(data_split)
+herring_lag_recipe <- recipe(Metric.Tons ~ Jan.nao + Feb.nao + Mar.nao + NAO, data = data_train)
+lin_mod <- linear_reg() %>% 
+  set_mode("regression") %>%
+  set_engine("glm")
+wflow <- 
+  workflow() %>% 
+  add_model(lin_mod) %>% 
+  add_recipe(herring_lag_recipe)
+herring_lag_fit <- wflow %>% 
+  fit(data = data_train)
+MTpredictions_lag <- augment(herring_lag_fit, data_test)
+plot(MTpredictions_lag$.pred,MTpredictions_lag$Metric.Tons)
+fit_metrics_lag <- metrics(MTpredictions_lag, truth = Metric.Tons, estimate=.pred)
+fit_metrics_lag
+```
+
+The cool thing about doing it this way is that we can plot what would have been predicted against what actually happened.
+
+```{r}
+plot(alldata$Year,alldata$Metric.Tons,
+     type='l',
+     col='blue',
+     lwd=3,
+     xlab='Year',
+     ylab='Herring catch (metric tons)')
+lines(MTpredictions_lag$Year,MTpredictions_lag$.pred)
+```
+
+
+
 
 ## Assignment
 
