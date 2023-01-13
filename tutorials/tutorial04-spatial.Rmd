@@ -1,0 +1,94 @@
+---
+title: "Introduction to Spatial Modeling"
+author: "Camille H. Ross"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Spatial data
+
+```{r init}
+# Check if packages are installed
+packages <- c("tidyverse", "raster", "robis", "tidymodels", "stringr", "fs", "mgcv")
+for (package in packages) {
+  if (!(package %in% installed.packages())) {
+    install.packages(package)
+  }
+}
+
+# Load package libraries
+library(tidyverse)
+library(raster)
+library(robis)
+library(tidymodels)
+library(stringr)
+library(fs)
+library(mgcv)
+```
+
+
+## Spatial modeling
+
+## Example
+
+https://oj713.github.io/tidymodels/index.html
+
+### Load occurence points
+
+```{r load_data}
+data_path <- file.path("C.finmarchicus.Rds")
+force_load <- FALSE
+
+if (!fs::is_file(data_path) | force_load) {
+  occ <- robis::occurrence(scientificname = "Calanus finmarchicus") |>
+    dplyr::distinct() |>
+    dplyr::select(individualCount, decimalLongitude, decimalLatitude, eventDate, sst, sss, bathymetry) |>
+    # Extract and format temporal information
+    dplyr::mutate(date = stringr::str_sub(eventDate, start = 1, end = 10),
+                  year = as.integer(stringr::str_split_i(date, pattern = "-", i = 1)),
+                  month = as.integer(stringr::str_split_i(date, pattern = "-", i = 2)),
+                  day = as.integer(stringr::str_split_i(date, pattern = "-", i = 3)))
+  # Save data to disk for faster loading
+  saveRDS(occ, data_path)
+} else {
+  occ <- readRDS(data_path)
+}
+  
+View(occ)
+
+# Crop to Gulf of Maine bounding box
+occ_cropped <- occ |>
+  dplyr::filter(decimalLatitude > 35 & decimalLatitude < 45 & decimalLongitude < -50 & decimalLongitude > -80)
+
+robis::map_leaflet(occ_cropped)
+
+```
+
+## Modeling example
+
+```{r}
+occ_gam <- occ_cropped |>
+  na.omit() |>
+  dplyr::mutate(abundance = log10(as.numeric(individualCount)),
+                sst = as.numeric(sst),
+                sss = as.numeric(sss),
+                bathymetry = as.numeric(bathymetry))
+
+m_occ <- mgcv::gam(abundance ~ 
+                     s(log10(bathymetry)) +
+                     s(sst, bs = "re") +
+                     s(sss, bs = "re"),
+                   data = occ_gam, family = gaussian(), method = "REML")
+
+summary(m_occ)
+
+plot(m_occ)
+
+```
+
+
+
