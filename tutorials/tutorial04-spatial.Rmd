@@ -45,23 +45,28 @@ force_load <- FALSE
 
 if (!fs::is_file(data_path) | force_load) {
   occ <- robis::occurrence(scientificname = "Calanus finmarchicus") |>
-    dplyr::distinct() |>
-    dplyr::select(individualCount, decimalLongitude, decimalLatitude, eventDate, sst, sss, bathymetry) |>
+    dplyr::distinct()
+  
+  occ_clean <- occ |>
+    dplyr::select(individualCount, decimalLongitude, decimalLatitude, eventDate, sst, sss, bathymetry)
+  
+  occ_clean <- occ_clean |>
     # Extract and format temporal information
-    dplyr::mutate(date = stringr::str_sub(eventDate, start = 1, end = 10),
-                  year = as.integer(stringr::str_split_i(date, pattern = "-", i = 1)),
-                  month = as.integer(stringr::str_split_i(date, pattern = "-", i = 2)),
-                  day = as.integer(stringr::str_split_i(date, pattern = "-", i = 3)))
+    dplyr::mutate(date = as.Date(stringr::str_sub(eventDate, start = 1, end = 10)),
+                  year = as.integer(lubridate::year(date)),
+                  month = as.integer(lubridate::month(date)),
+                  day = as.integer(lubridate::day(date)))
+  
   # Save data to disk for faster loading
-  saveRDS(occ, data_path)
+  saveRDS(occ_clean, data_path)
 } else {
-  occ <- readRDS(data_path)
+  occ_clean <- readRDS(data_path)
 }
   
-View(occ)
+View(occ_clean)
 
 # Crop to Gulf of Maine bounding box
-occ_cropped <- occ |>
+occ_cropped <- occ_clean |>
   dplyr::filter(decimalLatitude > 35 & decimalLatitude < 45 & decimalLongitude < -50 & decimalLongitude > -80)
 
 robis::map_leaflet(occ_cropped)
